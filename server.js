@@ -1,38 +1,32 @@
-const express = require("express");
-const cors = require("cors");
-const WebSocket = require("ws");
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
-
-// Разрешаем WebSockets в CSP
-app.use((req, res, next) => {
-    res.setHeader("Content-Security-Policy", "default-src 'self'; connect-src 'self' wss://mug-production.up.railway.app;");
-    next();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Разрешаем любые подключения (для тестов)
+        methods: ["GET", "POST"]
+    }
 });
 
-// Разрешаем CORS
-app.use(cors({ origin: "*" }));
+io.on('connection', (socket) => {
+    console.log(`✅ Клиент подключен: ${socket.id}`);
+
+    socket.emit("serverMessage", "Добро пожаловать!");
+
+    socket.on('clientMessage', (data) => {
+        console.log(`📩 Сообщение от клиента: ${data}`);
+        socket.emit('serverMessage', `Принято: ${data}`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`❌ Клиент отключен: ${socket.id}`);
+    });
+});
 
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Сервер работает на порту ${PORT}`);
+server.listen(PORT, () => {
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
 });
-
-// WebSocket сервер
-const wss = new WebSocket.Server({ server });
-
-wss.on("connection", (ws) => {
-    console.log("✅ Новый игрок подключен!");
-    ws.send("🎉 Добро пожаловать!");
-
-    ws.on("message", (message) => {
-        console.log("📩 Сообщение от клиента:", message);
-        ws.send("Принято: " + message);
-    });
-
-    ws.on("close", () => {
-        console.log("❌ Игрок отключен");
-    });
-});
-
-console.log("🚀 WebSocket сервер запущен!");
